@@ -1,0 +1,72 @@
+apiVersion: v1
+kind: Pod
+spec:
+  containers:
+  - name: taskboard-builder
+    image: repo:5000/taskboard-builder:v1
+    command:
+    - Xvfb 
+    - :1
+    tty: true
+    alwaysPullImage: true
+    env:
+    - name: DISPLAY
+      value: :1
+    volumeMounts:
+        - mountPath: /dev/shm
+          name: tmpfs
+  - name: mariadb
+    image: mariadb:5.5
+    readinessProbe:
+      tcpSocket:
+        port: 3306
+      initialDelaySeconds: 5
+      periodSeconds: 10
+    env:
+        - name: MYSQL_ROOT_PASSWORD
+          value: my-secret-pw
+        - name: MYSQL_DATABASE
+          value: taskboard
+  - name: oracle11g
+    image: repo:5000/ng-oracle-11
+    securityContext:
+        privileged: true
+    tty: true
+    readinessProbe:
+      exec:
+        command: [ "/bin/bash","-c", "test -f /tmp/oracleready" ]
+  - name: kaniko
+    image: gcr.io/kaniko-project/executor:debug
+    imagePullPolicy: Always
+    command:
+    - /busybox/cat
+    tty: true
+    volumeMounts:
+      - name: repo-docker-creds
+        mountPath: /root
+
+  - name: clair-db
+    image: arminc/clair-db
+    alwaysPullImage: true
+    readinessProbe:
+      tcpSocket:
+        port: 5432
+      initialDelaySeconds: 5
+      periodSeconds: 10
+
+  - name: clair-server
+    image: repo:5000/clair-local-scanner
+
+  volumes:
+  - name: tmpfs
+    emptyDir:
+      medium: Memory
+      sizeLimit: "128Mi"
+  - name: repo-docker-creds
+    projected:
+      sources:
+      - secret:
+          name: repocred
+          items:
+            - key: .dockerconfigjson
+              path: .docker/config.json

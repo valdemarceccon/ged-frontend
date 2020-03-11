@@ -1,0 +1,14 @@
+version: "3"
+
+services: 
+  install:
+    image: node:13
+    volumes: 
+      - nodemodules:/app/node_modules
+      - .:/app
+    working_dir: /app
+    command: npm install
+    
+volumes: 
+  nodemodules:
+    external: true
